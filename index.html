@@ -94,9 +94,14 @@
 <script>
 /* ===== CONFIG: แก้ตรงนี้เป็น HTTP URL ของ Power Automate flow ที่ได้จาก Phase 2-3 ===== */
 const CONFIG = {
-  FLOW_URL: 'https://default51fb72ff91584c1586d66b2a07ca82.2e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/12/workflows/d2be98b3662945b69991a3bda91d7a90/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=7l0dYoYBgPIWuHZm_2ivuAJ2EN1XsXMQnY75gkgJPSI' // เช่น https://prod-xx.southeastasia.logic.azure.com:443/workflows/xxxx/triggers/manual/paths/invoke?...
+  FLOW_URL: 'https://default51fb72ff91584c1586d66b2a07ca82.2e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/12/workflows/d2be98b3662945b69991a3bda91d7a90/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=7l0dYoYBgPIWuHZm_2ivuAJ2EN1XsXMQnY75gkgJPSI
+',        // Phase 2-3: submit คำขอ (Excel + อีเมล + OneDrive)
+  LOOKUP_URL: 'https://default51fb72ff91584c1586d66b2a07ca82.2e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/24/workflows/3b9ad8d458f3437caa482152a7b1f9ba/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=sUa3sYJVJ9Q7B64e2eI0MIxGHMns12zE0k_VGgstBIU',    // UserLookup-Webhook: เช็คว่าเคยลงทะเบียนหรือยัง
+  SAVE_URL: 'https://default51fb72ff91584c1586d66b2a07ca82.2e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/05/workflows/40739dc197cc40738250e4a309da15ce/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=NL9Sm8f-ZHi9sZigMjSSLgePAT8XZsIixT-POxhWflo'         // UserSave-Webhook: บันทึก/อัปเดตโปรไฟล์
 };
 const FLOW_CONFIGURED = CONFIG.FLOW_URL && CONFIG.FLOW_URL !== 'REPLACE_WITH_YOUR_FLOW_URL';
+const LOOKUP_CONFIGURED = CONFIG.LOOKUP_URL && CONFIG.LOOKUP_URL !== 'REPLACE_WITH_YOUR_LOOKUP_URL';
+const SAVE_CONFIGURED = CONFIG.SAVE_URL && CONFIG.SAVE_URL !== 'REPLACE_WITH_YOUR_SAVE_URL';
 
 let session = null; // {email, department, supervisorEmail} - in-memory only for this demo
 let users = {};     // email -> {department, supervisorEmail}
@@ -135,15 +140,44 @@ function loginScreen(){
     <p class="desc">พิมพ์อีเมลของคุณ ถ้ายังไม่เคยลงทะเบียน ระบบจะพาไปกรอกข้อมูลก่อนใช้งานครั้งแรก</p>
     <div class="field"><label>อีเมล</label><input id="li-email" placeholder="name@company.com" type="email"></div>
     <button class="btn btn-primary" style="width:100%" onclick="doLogin()">เข้าสู่ระบบ / ลงทะเบียน</button>
-    <p class="note">Demo นี้เก็บ session ไว้ชั่วคราวในหน้าเว็บเท่านั้น (ยังไม่ใช่ระบบ auth จริง) — ในเวอร์ชัน deploy จริงจะแนะนำวิธีทำ login ที่เหมาะสมให้ในขั้นถัดไป</p>
+    <p class="note">${LOOKUP_CONFIGURED ? '🔗 เชื่อมต่อระบบสมาชิกจริงแล้ว' : '⚠️ ยังไม่ได้ตั้งค่า CONFIG.LOOKUP_URL — โปรไฟล์จะไม่จำข้ามรอบเข้าเว็บ'}</p>
   </div>`;
 }
 function bindLogin(){
   document.getElementById('li-email').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 }
-function doLogin(){
+async function doLogin(){
   const email = document.getElementById('li-email').value.trim().toLowerCase();
   if(!email || !email.includes('@')){ showToast('⚠️ กรุณากรอกอีเมลให้ถูกต้อง'); return; }
+
+  if(LOOKUP_CONFIGURED){
+    showToast('⏳ กำลังตรวจสอบผู้ใช้...');
+    try{
+      const resp = await fetch(CONFIG.LOOKUP_URL, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ email })
+      });
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const data = await resp.json();
+      if(data.found){
+        session = {
+          email,
+          department: data.department || '-',
+          supervisorEmail: data.supervisorEmail || '-',
+          isAdmin: String(data.isAdmin).toLowerCase() === 'yes' || data.isAdmin === true
+        };
+        render();
+      } else {
+        renderRegister(email);
+      }
+    }catch(e){
+      console.error(e);
+      showToast('⚠️ เชื่อมต่อระบบตรวจสอบผู้ใช้ไม่สำเร็จ ('+(e.message||'network error')+') — ตรวจสอบ CONFIG.LOOKUP_URL');
+    }
+    return;
+  }
+
+  // โหมด demo (ยังไม่ตั้งค่า LOOKUP_URL): ใช้ข้อมูลใน window.storage แทน
   if(users[email]){
     session = { email, department: users[email].department, supervisorEmail: users[email].supervisorEmail, isAdmin: !!users[email].isAdmin };
     render();
@@ -170,6 +204,20 @@ function renderRegister(email){
     <p class="note">ข้อมูลใน demo นี้เก็บแบบ shared เพื่อสาธิตการทำงาน — ทุกคนที่เปิด demo นี้จะเห็นข้อมูลเดียวกัน</p>
   </div>`;
 }
+async function saveUserProfile(email, dept, sup, isAdmin){
+  if(SAVE_CONFIGURED){
+    const resp = await fetch(CONFIG.SAVE_URL, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email, department: dept, supervisorEmail: sup, isAdmin: isAdmin ? 'Yes' : 'No' })
+    });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+  } else {
+    // โหมด demo: เก็บใน window.storage แทน
+    users[email] = { department: dept, supervisorEmail: sup, isAdmin };
+    await saveUsers();
+  }
+}
+
 async function doRegister(email){
   const dept = document.getElementById('rg-dept').value.trim();
   const sup = document.getElementById('rg-sup').value.trim().toLowerCase();
@@ -177,8 +225,13 @@ async function doRegister(email){
   if(!dept || !sup){ showToast('⚠️ กรุณากรอกแผนกและอีเมลหัวหน้างาน'); return; }
   const isAdmin = code === 'ADMIN2026';
   if(code && !isAdmin){ showToast('⚠️ รหัส Admin ไม่ถูกต้อง — ลงทะเบียนเป็นผู้ใช้งานทั่วไปแทน'); }
-  users[email] = { department: dept, supervisorEmail: sup, isAdmin };
-  await saveUsers();
+  try{
+    await saveUserProfile(email, dept, sup, isAdmin);
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ บันทึกโปรไฟล์ไม่สำเร็จ ('+(e.message||'network error')+') — ตรวจสอบ CONFIG.SAVE_URL');
+    return;
+  }
   session = { email, department: dept, supervisorEmail: sup, isAdmin };
   showToast(isAdmin ? '✅ ลงทะเบียนสำเร็จ (สิทธิ์ Admin)' : '✅ ลงทะเบียนสำเร็จ');
   render();
@@ -202,8 +255,9 @@ function mainScreen(){
     <div class="tab" data-tab="profile">แก้ไขโปรไฟล์</div>
   </div>
   <div class="warn" style="margin-top:16px;">${FLOW_CONFIGURED
-      ? '🔗 เชื่อมต่อกับ Power Automate backend แล้ว — Submit จะเข้า Excel/อีเมล/OneDrive จริง'
-      : '⚠️ ยังไม่ได้ตั้งค่า Power Automate URL ใน CONFIG.FLOW_URL (ต้นไฟล์) — ตอนนี้ Submit จะได้แค่ไฟล์ PDF ในเครื่องเท่านั้น'}
+      ? '🔗 Submit เชื่อมต่อ Excel/อีเมล/OneDrive จริงแล้ว'
+      : '⚠️ ยังไม่ได้ตั้งค่า CONFIG.FLOW_URL — Submit จะได้แค่ไฟล์ PDF ในเครื่องเท่านั้น'}
+    ${LOOKUP_CONFIGURED && SAVE_CONFIGURED ? ' · 🔗 โปรไฟล์ผู้ใช้เชื่อมต่อจริงแล้ว' : ' · ⚠️ โปรไฟล์ผู้ใช้ยังไม่ persist ข้ามรอบเข้าเว็บ (ตั้งค่า CONFIG.LOOKUP_URL/SAVE_URL)'}
     การจำกัดประวัติ 2 เดือน/1 ปี เป็นการกรองการแสดงผลของหน้าเดโมนี้เท่านั้น</div>
   <div class="panel active" id="panel-new">${newRequestPanel()}</div>
   <div class="panel" id="panel-hist">${historyPanel()}</div>
@@ -531,9 +585,14 @@ async function saveProfile(){
   const dept = document.getElementById('pf-dept').value.trim();
   const sup = document.getElementById('pf-sup').value.trim().toLowerCase();
   if(!dept || !sup){ showToast('⚠️ กรุณากรอกให้ครบ'); return; }
-  users[session.email] = { department: dept, supervisorEmail: sup, isAdmin: !!session.isAdmin };
+  try{
+    await saveUserProfile(session.email, dept, sup, !!session.isAdmin);
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ บันทึกโปรไฟล์ไม่สำเร็จ ('+(e.message||'network error')+')');
+    return;
+  }
   session.department = dept; session.supervisorEmail = sup;
-  await saveUsers();
   showToast('✅ บันทึกโปรไฟล์แล้ว');
   render();
 }

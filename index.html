@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ระบบแจ้งขอเพิ่ม/ลด/ยกเลิกแผนการผลิต — Web App Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --navy:#1B2A41; --steel:#3D6B99; --amber:#E08E32; --green:#2F855A; --red:#C0392B;
+    --bg:#F5F6F8; --card:#FFFFFF; --text:#1F2937; --muted:#6B7280; --line:#E3E7EC;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Sarabun','Segoe UI','TH Sarabun New',sans-serif;background:var(--bg);color:var(--text);}
+  .wrap{max-width:1000px;margin:0 auto;padding:24px 20px 60px;}
+  .topbar{background:var(--navy);color:#fff;padding:18px 24px;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;}
+  .topbar h1{margin:0;font-size:18px;font-weight:700;}
+  .topbar .sub{margin:2px 0 0;font-size:12px;color:#B9C6DA;}
+  .userchip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:8px 14px;border-radius:10px;font-size:12.5px;display:flex;gap:10px;align-items:center;}
+  .userchip button{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 10px;font-size:11px;border-radius:6px;cursor:pointer;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;margin-top:20px;}
+  .card h2{font-size:16px;margin:0 0 6px;color:var(--navy);}
+  .card .desc{font-size:12.5px;color:var(--muted);margin:0 0 18px;}
+  label{font-size:13px;color:var(--muted);font-weight:600;display:block;margin-bottom:5px;}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px;background:#FBFCFD;}
+  textarea{resize:vertical;min-height:56px;}
+  .field{margin-bottom:14px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  button.btn{border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn-primary{background:var(--steel);color:#fff;}
+  .btn-primary:hover{background:#345a80;}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--text);}
+  .btn-ghost:hover{background:#F5F7FA;}
+  .radiogroup{display:flex;gap:10px;flex-wrap:wrap;}
+  .radiogroup label{display:flex;align-items:center;gap:6px;border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-weight:500;color:var(--text);cursor:pointer;flex:1 1 100px;justify-content:center;}
+  .fielderr{border-color:var(--red) !important;background:#FBEAE8 !important;}
+  .rowerr{font-size:11.5px;color:var(--red);margin-top:4px;}
+  .adminbadge{background:#3C3489;color:#fff;font-size:10.5px;padding:2px 8px;border-radius:999px;font-weight:700;margin-right:6px;}
+  .infobox{background:#EEF3F9;border:1px solid #C7DAEC;color:#1F4D73;padding:10px 14px;border-radius:9px;font-size:12px;margin-bottom:16px;}
+  #pdf-render-area{position:fixed;left:-10000px;top:0;width:794px;background:#fff;font-family:'Sarabun','Segoe UI',sans-serif;color:#111;padding:50px 55px;}
+  #pdf-render-area *{box-sizing:border-box;}
+  .pf-title{text-align:center;font-size:19px;font-weight:700;margin-bottom:22px;}
+  .pf-row{margin-bottom:10px;font-size:13px;}
+  .pf-row .dots{border-bottom:1px dotted #333;display:inline-block;min-width:160px;padding:0 4px;}
+  .pf-check{display:flex;gap:22px;flex-wrap:wrap;margin:16px 0;font-size:13px;}
+  .pf-check span{display:inline-flex;align-items:center;gap:6px;}
+  .pf-box{width:15px;height:15px;border:1.4px solid #222;display:inline-block;text-align:center;line-height:13px;font-size:12px;}
+  .pf-check-type{display:flex;justify-content:center;gap:34px;flex-wrap:wrap;margin:26px 0;font-size:15px;}
+  .pf-check-type span{display:inline-flex;align-items:center;gap:7px;}
+  .pf-check-type .pf-box{width:16px;height:16px;line-height:14px;font-size:13px;}
+  .pf-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;}
+  .pf-table th,.pf-table td{border:1px solid #333;padding:7px 8px;text-align:center;}
+  .pf-table th{font-weight:700;background:#F2F2F2;}
+  .pf-sig{font-size:13px;margin:14px 0;}
+  .pf-foot{font-size:10px;color:#555;text-align:right;margin-top:26px;}
+  .radiogroup input{width:auto;}
+  .radiogroup label.checked{border-color:var(--steel);background:#EEF3F9;color:var(--steel);}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;}
+  .warn{background:#FDF1E3;border:1px solid #F3D5AC;color:#8A5A16;padding:10px 14px;border-radius:9px;font-size:12.5px;margin-bottom:16px;}
+  .center{max-width:440px;margin:60px auto 0;}
+  .tabs{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
+  .tab{padding:9px 16px;border-radius:9px;background:#fff;border:1px solid var(--line);cursor:pointer;font-size:13.5px;color:var(--muted);font-weight:600;}
+  .tab.active{background:var(--steel);color:#fff;border-color:var(--steel);}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  /* excel grid */
+  table.grid{width:100%;border-collapse:collapse;font-size:13px;}
+  table.grid th{background:#F1F4F8;color:var(--muted);font-weight:700;padding:8px;border:1px solid var(--line);font-size:12px;text-align:center;}
+  table.grid td{border:1px solid var(--line);padding:0;}
+  table.grid td input{border:none;border-radius:0;padding:8px;background:transparent;}
+  table.grid td input:focus{outline:2px solid var(--steel);outline-offset:-2px;background:#fff;}
+  table.grid td.rownum{text-align:center;color:var(--muted);background:#FAFBFC;font-size:12px;width:32px;}
+  .pill{padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;display:inline-block;}
+  .p-inc{background:#E7F4EC;color:var(--green);} .p-dec{background:#FDF1E3;color:var(--amber);} .p-can{background:#FBEAE8;color:var(--red);} .p-tr{background:#EEF3F9;color:var(--steel);}
+  .hist-row{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;cursor:pointer;}
+  .hist-row:hover{background:#F8FAFC;}
+  .hist-head{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;}
+  .hist-items{margin-top:10px;font-size:12.5px;color:var(--muted);display:none;}
+  .hist-row.open .hist-items{display:block;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:13px 22px;border-radius:10px;font-size:13.5px;opacity:0;transition:.25s;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90%;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .maillog{background:#F8FAFC;border:1px dashed var(--line);border-radius:10px;padding:14px 16px;font-size:12.5px;color:var(--muted);margin-top:16px;}
+  .maillog b{color:var(--text);}
+  @media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== CONFIG: แก้ตรงนี้เป็น HTTP URL ของ Power Automate flow ที่ได้จาก Phase 2-3 ===== */
+const CONFIG = {
+  FLOW_URL: 'https://default51fb72ff91584c1586d66b2a07ca82.2e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/12/workflows/d2be98b3662945b69991a3bda91d7a90/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=7l0dYoYBgPIWuHZm_2ivuAJ2EN1XsXMQnY75gkgJPSI' // เช่น https://prod-xx.southeastasia.logic.azure.com:443/workflows/xxxx/triggers/manual/paths/invoke?...
+};
+const FLOW_CONFIGURED = CONFIG.FLOW_URL && CONFIG.FLOW_URL !== 'REPLACE_WITH_YOUR_FLOW_URL';
+
+let session = null; // {email, department, supervisorEmail} - in-memory only for this demo
+let users = {};     // email -> {department, supervisorEmail}
+let requests = [];  // flat rows: {requestId, date, requesterEmail, department, supervisorEmail, type, due, reason, lineNo, code, name, qty, unit}
+
+async function loadAll(){
+  try{ const r = await window.storage.get('users', true); users = r ? JSON.parse(r.value) : {}; }catch(e){ users = {}; }
+  try{ const r = await window.storage.get('requests', true); requests = r ? JSON.parse(r.value) : []; }catch(e){ requests = []; }
+}
+async function saveUsers(){ try{ await window.storage.set('users', JSON.stringify(users), true); }catch(e){ console.error(e); } }
+async function saveRequests(){ try{ await window.storage.set('requests', JSON.stringify(requests), true); }catch(e){ console.error(e); } }
+
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 3500);
+}
+function todayStr(){ return new Date().toLocaleDateString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit'}); }
+function esc(s){ return (s||'').toString().replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+/* ---------- ROUTER ---------- */
+function render(){
+  const app = document.getElementById('app');
+  if(!session){ app.innerHTML = loginScreen(); bindLogin(); return; }
+  app.innerHTML = mainScreen();
+  bindMain();
+}
+
+/* ---------- LOGIN / REGISTER ---------- */
+function loginScreen(){
+  return `
+  <div class="topbar"><div><h1>ระบบแจ้งขอเพิ่ม/ลด/ยกเลิกแผนการผลิต</h1><p class="sub">Web App Demo</p></div></div>
+  <div class="card center">
+    <h2>เข้าสู่ระบบด้วยอีเมล</h2>
+    <p class="desc">พิมพ์อีเมลของคุณ ถ้ายังไม่เคยลงทะเบียน ระบบจะพาไปกรอกข้อมูลก่อนใช้งานครั้งแรก</p>
+    <div class="field"><label>อีเมล</label><input id="li-email" placeholder="name@company.com" type="email"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">เข้าสู่ระบบ / ลงทะเบียน</button>
+    <p class="note">Demo นี้เก็บ session ไว้ชั่วคราวในหน้าเว็บเท่านั้น (ยังไม่ใช่ระบบ auth จริง) — ในเวอร์ชัน deploy จริงจะแนะนำวิธีทำ login ที่เหมาะสมให้ในขั้นถัดไป</p>
+  </div>`;
+}
+function bindLogin(){
+  document.getElementById('li-email').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+}
+function doLogin(){
+  const email = document.getElementById('li-email').value.trim().toLowerCase();
+  if(!email || !email.includes('@')){ showToast('⚠️ กรุณากรอกอีเมลให้ถูกต้อง'); return; }
+  if(users[email]){
+    session = { email, department: users[email].department, supervisorEmail: users[email].supervisorEmail, isAdmin: !!users[email].isAdmin };
+    render();
+  } else {
+    renderRegister(email);
+  }
+}
+function renderRegister(email){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <div class="topbar"><div><h1>ระบบแจ้งขอเพิ่ม/ลด/ยกเลิกแผนการผลิต</h1><p class="sub">Web App Demo</p></div></div>
+  <div class="card center">
+    <h2>ลงทะเบียนใช้งานครั้งแรก</h2>
+    <p class="desc">ข้อมูลนี้จะถูกใช้เป็นค่า default ทุกครั้งที่แจ้งงาน แก้ไขภายหลังได้เสมอ</p>
+    <div class="field"><label>อีเมลผู้แจ้งงาน (ผู้ login)</label><input value="${esc(email)}" disabled></div>
+    <div class="field"><label>แผนก</label><input id="rg-dept" placeholder="เช่น Production"></div>
+    <div class="field"><label>อีเมลหัวหน้างานผู้มีสิทธิ์อนุมัติ</label><input id="rg-sup" type="email" placeholder="supervisor@company.com"></div>
+    <div class="field">
+      <label>รหัสผู้ดูแลระบบ (Admin) — ไม่บังคับ</label>
+      <input id="rg-admincode" placeholder="เว้นว่างไว้ถ้าเป็นผู้ใช้งานทั่วไป">
+      <p class="note">Demo: ใส่รหัส <b>ADMIN2026</b> เพื่อทดลองสิทธิ์ Admin (ดูประวัติย้อนหลังได้ 1 ปีแทน 2 เดือน)</p>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="doRegister('${esc(email)}')">บันทึกและเข้าใช้งาน</button>
+    <p class="note">ข้อมูลใน demo นี้เก็บแบบ shared เพื่อสาธิตการทำงาน — ทุกคนที่เปิด demo นี้จะเห็นข้อมูลเดียวกัน</p>
+  </div>`;
+}
+async function doRegister(email){
+  const dept = document.getElementById('rg-dept').value.trim();
+  const sup = document.getElementById('rg-sup').value.trim().toLowerCase();
+  const code = document.getElementById('rg-admincode').value.trim();
+  if(!dept || !sup){ showToast('⚠️ กรุณากรอกแผนกและอีเมลหัวหน้างาน'); return; }
+  const isAdmin = code === 'ADMIN2026';
+  if(code && !isAdmin){ showToast('⚠️ รหัส Admin ไม่ถูกต้อง — ลงทะเบียนเป็นผู้ใช้งานทั่วไปแทน'); }
+  users[email] = { department: dept, supervisorEmail: sup, isAdmin };
+  await saveUsers();
+  session = { email, department: dept, supervisorEmail: sup, isAdmin };
+  showToast(isAdmin ? '✅ ลงทะเบียนสำเร็จ (สิทธิ์ Admin)' : '✅ ลงทะเบียนสำเร็จ');
+  render();
+}
+function logout(){ session = null; render(); }
+
+/* ---------- MAIN APP ---------- */
+function mainScreen(){
+  return `
+  <div class="topbar">
+    <div><h1>ระบบแจ้งขอเพิ่ม/ลด/ยกเลิกแผนการผลิต</h1><p class="sub">Web App Demo</p></div>
+    <div class="userchip">
+      <span>${session.isAdmin ? '<span class="adminbadge">ADMIN</span>' : ''}👤 ${esc(session.email)} · ${esc(session.department)}</span>
+      <button onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="new">แจ้งงานใหม่</div>
+    <div class="tab" data-tab="hist">ประวัติของฉัน</div>
+    ${session.isAdmin ? '<div class="tab" data-tab="histall">ประวัติทั้งหมด (Admin)</div>' : ''}
+    <div class="tab" data-tab="profile">แก้ไขโปรไฟล์</div>
+  </div>
+  <div class="warn" style="margin-top:16px;">${FLOW_CONFIGURED
+      ? '🔗 เชื่อมต่อกับ Power Automate backend แล้ว — Submit จะเข้า Excel/อีเมล/OneDrive จริง'
+      : '⚠️ ยังไม่ได้ตั้งค่า Power Automate URL ใน CONFIG.FLOW_URL (ต้นไฟล์) — ตอนนี้ Submit จะได้แค่ไฟล์ PDF ในเครื่องเท่านั้น'}
+    การจำกัดประวัติ 2 เดือน/1 ปี เป็นการกรองการแสดงผลของหน้าเดโมนี้เท่านั้น</div>
+  <div class="panel active" id="panel-new">${newRequestPanel()}</div>
+  <div class="panel" id="panel-hist">${historyPanel()}</div>
+  ${session.isAdmin ? `<div class="panel" id="panel-histall">${historyAllPanel('')}</div>` : ''}
+  <div class="panel" id="panel-profile">${profilePanel()}</div>
+  `;
+}
+function bindMain(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+      if(t.dataset.tab==='hist'){ document.getElementById('panel-hist').innerHTML = historyPanel(); }
+      if(t.dataset.tab==='histall'){ document.getElementById('panel-histall').innerHTML = historyAllPanel(''); bindHistoryAll(); }
+    };
+  });
+  document.querySelectorAll('#type-group input').forEach(r=>{
+    r.onchange = ()=>{
+      document.querySelectorAll('#type-group label').forEach(l=>l.classList.remove('checked'));
+      r.parentElement.classList.add('checked');
+    };
+  });
+}
+
+function newRequestPanel(){
+  let rows = '';
+  for(let i=1;i<=6;i++){
+    rows += `<tr>
+      <td class="rownum">${i}</td>
+      <td><input data-row="${i}" data-f="code" placeholder="8851136xxxxxx" maxlength="13" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></td>
+      <td><input data-row="${i}" data-f="name" placeholder="ชื่อสินค้า"></td>
+      <td><input data-row="${i}" data-f="qty" type="number" placeholder="0"></td>
+      <td><input data-row="${i}" data-f="unit" placeholder="เช่น ชิ้น, กล่อง"></td>
+    </tr>`;
+  }
+  return `
+  <div class="card">
+    <h2>แบบฟอร์มแจ้งงาน</h2>
+    <p class="desc">ข้อมูลผู้แจ้ง/หัวหน้างานถูกดึงจากโปรไฟล์อัตโนมัติ กรอกเฉพาะรายละเอียดคำขอด้านล่าง</p>
+    <div class="infobox">รหัสสินค้าต้องเป็นตัวเลข 13 หลัก ขึ้นต้นด้วย <b>8851136</b> เช่น 8851136000123</div>
+    <div class="grid3">
+      <div class="field"><label>ผู้แจ้งงาน</label><input value="${esc(session.email)}" disabled></div>
+      <div class="field"><label>แผนก</label><input value="${esc(session.department)}" disabled></div>
+      <div class="field"><label>หัวหน้างานผู้อนุมัติ</label><input value="${esc(session.supervisorEmail)}" disabled></div>
+    </div>
+    <div class="field">
+      <label>ประเภทคำขอ</label>
+      <div class="radiogroup" id="type-group">
+        <label class="checked"><input type="radio" name="type" value="เพิ่ม" checked> เพิ่ม</label>
+        <label><input type="radio" name="type" value="ลด"> ลด</label>
+        <label><input type="radio" name="type" value="ยกเลิก"> ยกเลิก</label>
+        <label><input type="radio" name="type" value="ถ่ายบรรจุ"> ถ่ายบรรจุ</label>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>กำหนดส่งมอบ</label><input id="due" type="date"></div>
+      <div class="field"><label>เหตุผล</label><input id="reason" placeholder="ระบุเหตุผล"></div>
+    </div>
+
+    <label style="margin-top:6px;">รายการสินค้า (กรอกได้สูงสุด 6 รายการ)</label>
+    <table class="grid">
+      <thead><tr><th></th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>หน่วย</th></tr></thead>
+      <tbody id="grid-body">${rows}</tbody>
+    </table>
+
+    <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="submitRequest()">ส่งคำขอ</button>
+    </div>
+    <div id="mail-area"></div>
+  </div>`;
+}
+
+const CODE_PATTERN = /^8851136\d{6}$/;
+function collectRows(){
+  const out = [];
+  document.querySelectorAll('input[data-f="code"]').forEach(el=>el.classList.remove('fielderr'));
+  for(let i=1;i<=6;i++){
+    const codeEl = document.querySelector(`input[data-row="${i}"][data-f="code"]`);
+    const code = codeEl.value.trim();
+    const name = document.querySelector(`input[data-row="${i}"][data-f="name"]`).value.trim();
+    const qty  = document.querySelector(`input[data-row="${i}"][data-f="qty"]`).value.trim();
+    const unit = document.querySelector(`input[data-row="${i}"][data-f="unit"]`).value.trim();
+    if(code || name || qty){
+      if(!code || !name || !qty){ return {error: `แถวที่ ${i}: กรุณากรอก รหัสสินค้า, ชื่อสินค้า และจำนวน ให้ครบ`}; }
+      if(!CODE_PATTERN.test(code)){
+        codeEl.classList.add('fielderr');
+        return {error: `แถวที่ ${i}: รหัสสินค้าต้องเป็นตัวเลข 13 หลัก และขึ้นต้นด้วย 8851136`};
+      }
+      out.push({lineNo:i, code, name, qty, unit: unit||'-'});
+    }
+  }
+  return {rows: out};
+}
+
+async function submitRequest(){
+  const type = document.querySelector('#type-group input:checked').value;
+  const due = document.getElementById('due').value || '-';
+  const reason = document.getElementById('reason').value.trim() || '-';
+  const collected = collectRows();
+  if(collected.error){ showToast('⚠️ '+collected.error); return; }
+  if(collected.rows.length === 0){ showToast('⚠️ กรุณากรอกสินค้าอย่างน้อย 1 รายการ'); return; }
+
+  const requestId = 'PLN-2026-' + String(Math.floor(1000 + Math.random()*9000));
+  const date = todayStr();
+  const dateISO = new Date().toISOString().slice(0,10);
+  const newRows = collected.rows.map(r => ({
+    requestId, date, dateISO, requesterEmail: session.email, department: session.department,
+    supervisorEmail: session.supervisorEmail, type, due, reason,
+    lineNo: r.lineNo, code: r.code, name: r.name, qty: r.qty, unit: r.unit
+  }));
+  requests = requests.concat(newRows);
+  await saveRequests(); // เก็บสำรองไว้ในเดโมเฉพาะตอนรันบน Claude เท่านั้น ไม่ใช่แหล่งข้อมูลจริงอีกต่อไป
+
+  document.getElementById('mail-area').innerHTML = `<div class="maillog">⏳ กำลังสร้างเอกสาร PDF...</div>`;
+  let base64;
+  try{
+    base64 = await generatePdf(requestId, date, type, due, reason, newRows);
+  }catch(e){
+    console.error(e);
+    document.getElementById('mail-area').innerHTML = `<div class="maillog">⚠️ สร้าง PDF ไม่สำเร็จ: ${esc(e.message||'unknown error')}</div>`;
+    showToast('⚠️ สร้าง PDF ไม่สำเร็จ');
+    resetForm();
+    return;
+  }
+
+  if(!FLOW_CONFIGURED){
+    document.getElementById('mail-area').innerHTML = `
+      <div class="maillog">
+        ⚠️ ยังไม่ได้ตั้งค่า Power Automate URL (CONFIG.FLOW_URL ในโค้ด) — บันทึกเฉพาะ PDF ในเครื่องเท่านั้น ยังไม่ได้ส่งเข้า Excel/อีเมล/OneDrive จริง
+      </div>`;
+    showToast('✅ สร้าง PDF แล้ว (ยังไม่ได้เชื่อม backend)');
+    resetForm();
+    return;
+  }
+
+  document.getElementById('mail-area').innerHTML = `<div class="maillog">⏳ กำลังส่งข้อมูลเข้าระบบ (Excel / อีเมล / OneDrive)...</div>`;
+  try{
+    const payload = {
+      requestId, dateISO, dateDisplay: date,
+      requesterEmail: session.email, department: session.department, supervisorEmail: session.supervisorEmail,
+      requestType: type, dueDate: due, reason,
+      items: newRows.map(r => ({ code: r.code, name: r.name, qty: String(r.qty), unit: r.unit })),
+      pdfBase64: base64, pdfFileName: `${requestId}.pdf`
+    };
+    const resp = await fetch(CONFIG.FLOW_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!resp.ok){ throw new Error('HTTP ' + resp.status); }
+    document.getElementById('mail-area').innerHTML = `
+      <div class="maillog">
+        ✅ บันทึกลง Excel แล้ว · 📧 ส่งอีเมลยืนยันไปยัง <b>${esc(session.email)}</b> และหัวหน้างานแล้ว · 📁 บันทึกไฟล์ <b>${requestId}.pdf</b> ลง OneDrive แล้ว
+      </div>`;
+    showToast('✅ ส่งคำขอ '+requestId+' สำเร็จ — ระบบหลังบ้านประมวลผลแล้ว');
+  }catch(e){
+    console.error(e);
+    document.getElementById('mail-area').innerHTML = `
+      <div class="maillog">⚠️ ส่งข้อมูลเข้า backend ไม่สำเร็จ (${esc(e.message||'network error')}) — PDF ถูกดาวน์โหลดไว้ในเครื่องแล้ว แต่ยังไม่เข้า Excel/อีเมล/OneDrive กรุณาตรวจสอบ URL ใน CONFIG.FLOW_URL และสถานะ flow ใน Power Automate</div>`;
+    showToast('⚠️ ส่งเข้า backend ไม่สำเร็จ — ดู error ด้านล่างฟอร์ม');
+  }
+  resetForm();
+}
+
+function resetForm(){
+  for(let i=1;i<=6;i++){
+    ['code','name','qty','unit'].forEach(f=>{
+      document.querySelector(`input[data-row="${i}"][data-f="${f}"]`).value = '';
+    });
+  }
+  document.getElementById('due').value = '';
+  document.getElementById('reason').value = '';
+}
+
+const TYPE_CHECKS = ['เพิ่ม','ลด','ยกเลิก','ถ่ายบรรจุ'];
+function box(checked){ return `<span class="pf-box">${checked?'✓':''}</span>`; }
+
+async function generatePdf(requestId, date, type, due, reason, rows){
+  let area = document.getElementById('pdf-render-area');
+  if(!area){
+    area = document.createElement('div');
+    area.id = 'pdf-render-area';
+    document.body.appendChild(area);
+  }
+  const rowsHtml = rows.map(r => `<tr>
+      <td>${esc(r.code)}</td><td>${esc(r.name)}</td>
+      <td>${esc(r.qty)} ${esc(r.unit)}</td><td>${esc(due)}</td>
+    </tr>`).join('');
+  const blankRows = Math.max(0, 5 - rows.length);
+  let extra = '';
+  for(let i=0;i<blankRows;i++){ extra += `<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>`; }
+
+  area.innerHTML = `
+    <div class="pf-title">ใบขอเพิ่ม / ลดประมาณการผลิต</div>
+    <div class="pf-row" style="text-align:right">เลขที่แจ้ง<span class="dots">${esc(requestId)}</span></div>
+    <div class="pf-row" style="text-align:right">วันที่ดำเนินการแจ้ง<span class="dots">${esc(date)}</span></div>
+    <div class="pf-row">ชื่อผู้แจ้ง<span class="dots">${esc(session.email)}</span>แผนก<span class="dots">${esc(session.department)}</span></div>
+    <div class="pf-check-type">
+      ${TYPE_CHECKS.map(t=>`<span>${box(type===t)} ${t}</span>`).join('')}
+    </div>
+    <table class="pf-table">
+      <thead><tr><th>รหัสสินค้า</th><th>รายการสินค้า</th><th>จำนวนที่ต้องการ</th><th>กำหนดส่งมอบ</th></tr></thead>
+      <tbody>${rowsHtml}${extra}</tbody>
+    </table>
+    <div class="pf-row"><b>เหตุผล</b></div>
+    <div class="pf-row" style="min-height:44px;border-bottom:1px dotted #333;padding-bottom:18px;">${esc(reason)}</div>
+    <div class="pf-sig">ลงชื่อ................................................... ผู้ขอ &nbsp;&nbsp;&nbsp; ลงชื่อ................................................... ผู้อนุมัติในการขอ</div>
+    <div class="pf-row" style="font-weight:700;margin-top:10px;">ส่วนของโรงงาน</div>
+    <div class="pf-check">${box(false)} อนุมัติ &nbsp;&nbsp; ${box(false)} ไม่อนุมัติ</div>
+    <div class="pf-sig">ลงชื่อ...................................................ผู้จัดการโรงงาน / ผู้ช่วยผู้จัดการโรงงาน</div>
+    <div class="pf-sig">ลงชื่อ...................................................ผู้ช่วยผู้จัดการแผนกวางแผนผลิต (ผู้ดำเนินการ)</div>
+    <div class="pf-row" style="font-weight:700;margin-top:6px;">ดำเนินการโดย</div>
+    <div class="pf-row">${box(false)} เพิ่มแผนผลิตสินค้าวันที่.......................................................</div>
+    <div class="pf-row">${box(false)} ลดแผนผลิตสินค้าวันที่.......................................................</div>
+    <div class="pf-row">${box(false)} ยกเลิกแผนผลิตสินค้าวันที่.......................................................</div>
+    <div class="pf-row">${box(false)} ถ่ายบรรจุแผนผลิตสินค้าวันที่.......................................................</div>
+    <div class="pf-foot">QMS-FM-31-034 (R01,23/07/2026) — สร้างโดยระบบดิจิทัลอัตโนมัติ</div>
+  `;
+
+  const canvas = await html2canvas(area, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p','mm','a4');
+  const pageW = 210, pageH = 297;
+  const imgW = pageW;
+  const imgH = canvas.height * imgW / canvas.width;
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, imgH > pageH ? pageH : imgH);
+  doc.save(`${requestId}.pdf`); // ดาวน์โหลดลงเครื่องผู้ใช้เสมอ ไม่ว่า backend จะเชื่อมต่อสำเร็จหรือไม่
+
+  // เตรียม base64 (ไม่มี prefix "data:application/pdf;base64,") สำหรับส่งเข้า Power Automate
+  const dataUri = doc.output('datauristring');
+  const base64 = dataUri.split(',')[1];
+  return base64;
+}
+
+/* ---------- HISTORY ---------- */
+function parseReqDate(r){
+  if(r.dateISO){ const d = new Date(r.dateISO); if(!isNaN(d)) return d; }
+  return new Date(); // legacy rows without dateISO: treat as recent so they still show
+}
+function monthsAgo(n){ const d = new Date(); d.setMonth(d.getMonth()-n); return d; }
+function yearsAgo(n){ const d = new Date(); d.setFullYear(d.getFullYear()-n); return d; }
+const pillClassType = t => ({'เพิ่ม':'p-inc','ลด':'p-dec','ยกเลิก':'p-can'}[t] || 'p-tr');
+
+function groupRows(list){
+  const grouped = {};
+  list.forEach(r=>{ (grouped[r.requestId] = grouped[r.requestId]||[]).push(r); });
+  return grouped;
+}
+function renderGroups(grouped, opts){
+  const ids = Object.keys(grouped).sort().reverse();
+  if(ids.length===0){ return `<p class="desc">ไม่พบคำขอในช่วงเวลานี้</p>`; }
+  return ids.map(id=>{
+    const items = grouped[id];
+    const head = items[0];
+    return `<div class="hist-row" onclick="this.classList.toggle('open')">
+      <div class="hist-head">
+        <span><b>${id}</b> · ${head.date} · ${items.length} รายการ${opts&&opts.showRequester? ' · '+esc(head.requesterEmail):''}</span>
+        <span class="pill ${pillClassType(head.type)}">${head.type}</span>
+      </div>
+      <div class="hist-items">
+        กำหนดส่งมอบ: ${head.due} | เหตุผล: ${esc(head.reason)}<br>
+        ${items.map(i=>`• ${esc(i.code)} — ${esc(i.name)} : ${i.qty} ${esc(i.unit)}`).join('<br>')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function historyPanel(){
+  const cutoff = monthsAgo(2);
+  const mine = requests.filter(r=>r.requesterEmail === session.email && parseReqDate(r) >= cutoff);
+  return `<div class="card">
+    <h2>ประวัติของฉัน</h2>
+    <p class="desc">คลิกแต่ละรายการเพื่อดูรายละเอียดสินค้า — ผู้ใช้งานทั่วไปดูย้อนหลังได้ 2 เดือน</p>
+    ${renderGroups(groupRows(mine))}
+  </div>`;
+}
+
+function historyAllPanel(filterText){
+  const cutoff = yearsAgo(1);
+  let all = requests.filter(r=> parseReqDate(r) >= cutoff);
+  if(filterText){
+    const f = filterText.toLowerCase();
+    all = all.filter(r => r.requesterEmail.toLowerCase().includes(f) || r.department.toLowerCase().includes(f) || r.requestId.toLowerCase().includes(f));
+  }
+  return `<div class="card">
+    <h2>ประวัติทั้งหมด (Admin)</h2>
+    <p class="desc">สิทธิ์ Admin ดูย้อนหลังได้ 1 ปี ทุกผู้แจ้งในระบบ</p>
+    <div class="field"><input id="histall-filter" placeholder="ค้นหาด้วยอีเมลผู้แจ้ง / แผนก / เลขที่แจ้ง" value="${esc(filterText||'')}"></div>
+    <div id="histall-results">${renderGroups(groupRows(all), {showRequester:true})}</div>
+  </div>`;
+}
+function bindHistoryAll(){
+  const el = document.getElementById('histall-filter');
+  if(!el) return;
+  el.addEventListener('input', ()=>{
+    document.getElementById('histall-results').innerHTML =
+      renderGroups(groupRows((function(){
+        const cutoff = yearsAgo(1);
+        const f = el.value.trim().toLowerCase();
+        return requests.filter(r=>{
+          if(parseReqDate(r) < cutoff) return false;
+          if(!f) return true;
+          return r.requesterEmail.toLowerCase().includes(f) || r.department.toLowerCase().includes(f) || r.requestId.toLowerCase().includes(f);
+        });
+      })()), {showRequester:true});
+  });
+}
+
+/* ---------- PROFILE ---------- */
+function profilePanel(){
+  return `
+  <div class="card">
+    <h2>แก้ไขข้อมูลโปรไฟล์</h2>
+    <p class="desc">ใช้เมื่อมีการเปลี่ยนหัวหน้างานหรือย้ายแผนก ข้อมูลนี้จะเป็นค่า default ในการแจ้งงานครั้งถัดไป</p>
+    <div class="grid2">
+      <div class="field"><label>แผนก</label><input id="pf-dept" value="${esc(session.department)}"></div>
+      <div class="field"><label>อีเมลหัวหน้างานผู้อนุมัติ</label><input id="pf-sup" value="${esc(session.supervisorEmail)}"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveProfile()">บันทึกการเปลี่ยนแปลง</button>
+  </div>`;
+}
+async function saveProfile(){
+  const dept = document.getElementById('pf-dept').value.trim();
+  const sup = document.getElementById('pf-sup').value.trim().toLowerCase();
+  if(!dept || !sup){ showToast('⚠️ กรุณากรอกให้ครบ'); return; }
+  users[session.email] = { department: dept, supervisorEmail: sup, isAdmin: !!session.isAdmin };
+  session.department = dept; session.supervisorEmail = sup;
+  await saveUsers();
+  showToast('✅ บันทึกโปรไฟล์แล้ว');
+  render();
+}
+
+(async function init(){ await loadAll(); render(); })();
+</script>
+</body>
+</html>
